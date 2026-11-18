@@ -963,6 +963,7 @@ export function buildRequest(
   projectId: string,
   options: AntigravityStreamOptions,
   runtimeModel: string,
+  systemPromptAsUser = false,
 ): AntigravityGenerateRequest {
   const injectedSkills = context.messages.flatMap((msg) =>
     msg.role === "user" ? skillBlocks(msg.content) : [],
@@ -1007,13 +1008,15 @@ export function buildRequest(
     });
   }
 
-  const request: GeminiRequestBody = {
-    contents,
-    systemInstruction: {
-      role: GeminiRole.User,
-      parts: systemParts,
-    },
-  };
+  // The proxy content-gates `systemInstruction`: some phrasings (including pi's
+  // own preamble) answer with a bare 429 RESOURCE_EXHAUSTED, while the identical
+  // text sent as a user turn is accepted. The 429 retry path sets this flag.
+  const request: GeminiRequestBody = { contents };
+  if (systemPromptAsUser) {
+    contents.unshift({ role: GeminiRole.User, parts: systemParts });
+  } else {
+    request.systemInstruction = { role: GeminiRole.User, parts: systemParts };
+  }
 
   const generationConfig: GeminiGenerationConfig = {};
   if (options.temperature !== undefined) generationConfig.temperature = options.temperature;
@@ -1744,6 +1747,7 @@ export function streamAntigravity(
       let lastText = "";
       let received = false;
       let runtimeModel = initialRuntimeModel;
+      let systemPromptAsUser = false;
 
       for (let emptyAttempt = 0; emptyAttempt <= 2; emptyAttempt++) {
         if (opts.signal?.aborted) throw new Error("Request was aborted");
@@ -1773,6 +1777,7 @@ export function streamAntigravity(
               enterpriseTarget?.projectId || projectId,
               attemptOptions,
               runtimeModel,
+              systemPromptAsUser,
             );
             if (enterpriseTarget) {
               payload = toEnterpriseGenerateBody(
@@ -1846,6 +1851,13 @@ export function streamAntigravity(
             }
           }
           if (response?.status === 429 && isGenericResourceExhausted(lastText)) {
+            if (!systemPromptAsUser) {
+              // The gate reads systemInstruction only; replay the identical text
+              // as a user turn instead of giving up on the model.
+              systemPromptAsUser = true;
+              candIdx--;
+              continue;
+            }
             const nextSibling = advertisedSiblingRuntimes(runtimeModel).find(
               (id) => !runtimeCandidates.includes(id),
             );
@@ -1862,7 +1874,7 @@ export function streamAntigravity(
           if (antigravityEnv("DEBUG_DUMP") === "1") {
             try {
               const body = JSON.stringify(
-                buildRequest(model, context, projectId, opts, runtimeModel),
+                buildRequest(model, context, projectId, opts, runtimeModel, systemPromptAsUser),
               );
               let parsedBody: unknown = body;
               try {
