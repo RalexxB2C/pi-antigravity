@@ -11,6 +11,9 @@ dist/
 !.yarn/sdks
 !.yarn/versions
 
+# Local agent state (skills, probe evidence) stays on this machine.
+.pi/
+
 # Local live-probe dumps (may include email/projectId/quota)
 scripts/probe-results.json
 scripts/probe-tier-results.json
