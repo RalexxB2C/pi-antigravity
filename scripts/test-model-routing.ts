@@ -724,7 +724,7 @@ assert.match(
 );
 assert.match(
   friendlyAntigravityError(404, "Requested entity was not found"),
-  /not available right now/i,
+  /does not offer this model to your account/i,
 );
 
 const seedA = stableProjectId("user@example.com");
