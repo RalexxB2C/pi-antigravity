@@ -1702,10 +1702,10 @@ assert.equal(opusCost?.input, 5);
 assert.equal(opusCost?.output, 25);
 assert.equal(opusCost?.cacheRead, 0.5);
 
-// Wire fingerprint: User-Agent format (pure agy CLI)
-assert.equal(
+// Wire fingerprint: User-Agent format (pure agy CLI), version tracks the installed release.
+assert.match(
   defaultUserAgent(),
-  "antigravity/cli/1.5.5 (aidev_client; os_type=linux; arch=amd64; cl=982146307; auth_method=consumer)",
+  /^antigravity\/cli\/\d+\.\d+\.\d+ \(aidev_client; os_type=linux; arch=amd64; cl=\d+; auth_method=consumer\)$/,
 );
 
 // Wire fingerprint: Headers hygiene & environment isolation
